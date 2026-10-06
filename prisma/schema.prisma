@@ -1,0 +1,79 @@
+// Prisma schema：对齐 db/demo-schema.sql（kqw_demo）核心表的最小子集，
+// 用于骨架编译；完整字段以 db/demo-schema.sql 为准，后续用 prisma db pull 或手写对齐。
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model user {
+  id          Int     @id @default(autoincrement())
+  phone       String  @unique @db.VarChar(20)
+  invite_code String  @unique @db.VarChar(16)
+  referrer_id Int?
+  status      Int     @default(1)
+  created_at  DateTime @default(now())
+
+  @@map("user")
+}
+
+model point_wallet {
+  id             BigInt   @id @default(autoincrement())
+  user_id        Int      @unique
+  balance        Int      @default(0)
+  frozen_balance Int      @default(0)
+  total_earned   Int      @default(0)
+  total_consumed Int      @default(0)
+  version        Int      @default(0)
+  updated_at     DateTime @updatedAt
+
+  @@map("point_wallet")
+}
+
+model point_flow {
+  id            BigInt   @id @default(autoincrement())
+  flow_no       String   @unique @db.VarChar(64)
+  user_id       Int
+  delta         Int
+  flow_type     String   @db.VarChar(32)
+  biz_id        String   @db.VarChar(64)
+  balance_after Int
+  created_at    DateTime @default(now())
+
+  @@index([user_id, created_at])
+  @@map("point_flow")
+}
+
+model room {
+  id        BigInt   @id @default(autoincrement())
+  status    Int      @default(1)
+  created_at DateTime @default(now())
+
+  @@map("room")
+}
+
+model room_position {
+  id             BigInt    @id @default(autoincrement())
+  room_id        BigInt
+  pos_no         Int
+  holder_user_id Int?
+  occupied_at    DateTime?
+  contrib_points Int       @default(0)
+
+  @@unique([room_id, pos_no])
+  @@map("room_position")
+}
+
+model pos_task {
+  id           BigInt    @id @default(autoincrement())
+  user_id      Int
+  sn           String    @unique @db.VarChar(64)
+  qualified_at DateTime?
+  due_at       DateTime?
+  created_at   DateTime  @default(now())
+
+  @@map("pos_task")
+}
