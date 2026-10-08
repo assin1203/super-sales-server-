@@ -2,39 +2,31 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './shared/prisma/prisma.module';
 import { RedisModule } from './shared/redis/redis.module';
-import { UserModule } from './modules/user/user.module';
-import { MemberModule } from './modules/member/member.module';
-import { PosModule } from './modules/pos/pos.module';
-import { TeamModule } from './modules/team/team.module';
-import { PointsModule } from './modules/points/points.module';
-import { SettlementModule } from './modules/settlement/settlement.module';
-import { MallModule } from './modules/mall/mall.module';
-import { TaskModule } from './modules/task/task.module';
-import { GiftModule } from './modules/gift/gift.module';
-import { PoolModule } from './modules/pool/pool.module';
-import { AdminModule } from './modules/admin/admin.module';
+import { DaoModule } from './dao/dao.module';
+import { AppDomainModule } from './modules/app/app.domain.module';
+import { AdminDomainModule } from './modules/admin/admin.domain.module';
+import { appConfig, envFilePaths } from './config/env.config';
 
 /**
- * API 主应用：用户端 + 管理后台 BFF。
- * 模块划分对齐 DOC/demo-技术架构.md §4.1。
- * 注意：积分写入单入口原则 —— 其他模块不得直写 point_wallet，一律走 SettlementModule。
+ * API 主应用装配（API 进程：C 端 + 管理后台 BFF 合一）
+ *
+ * 分层约定（架构文档）：
+ * - Controller/Service 不直接碰 Prisma，一律经 DaoModule（全局模块）
+ * - modules/app（C 端）与 modules/admin（后台）独立维护，共用 DAO 层
+ * - 环境切换：.env + .env.{NODE_ENV}（envFilePaths），见 config/env.config.ts
  */
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: envFilePaths(),
+      load: [appConfig],
+    }),
     PrismaModule,
     RedisModule,
-    UserModule,
-    MemberModule,
-    PosModule,
-    TeamModule,
-    PointsModule,
-    SettlementModule,
-    MallModule,
-    TaskModule,
-    GiftModule,
-    PoolModule,
-    AdminModule,
+    DaoModule,
+    AppDomainModule,
+    AdminDomainModule,
   ],
 })
 export class AppModule {}

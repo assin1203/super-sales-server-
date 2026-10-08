@@ -1,79 +1,639 @@
-// Prisma schema：对齐 db/demo-schema.sql（kqw_demo）核心表的最小子集，
-// 用于骨架编译；完整字段以 db/demo-schema.sql 为准，后续用 prisma db pull 或手写对齐。
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
 }
 
 model user {
-  id          Int     @id @default(autoincrement())
-  phone       String  @unique @db.VarChar(20)
-  invite_code String  @unique @db.VarChar(16)
-  referrer_id Int?
-  status      Int     @default(1)
-  created_at  DateTime @default(now())
+  id                BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  phone             String    @unique(map: "uk_phone") @db.VarChar(20)
+  password_hash     String?   @db.VarChar(128)
+  nickname          String    @default("") @db.VarChar(64)
+  avatar            String    @default("") @db.VarChar(255)
+  invite_code       String    @unique(map: "uk_invite_code") @db.VarChar(16)
+  referrer_id       BigInt?   @db.UnsignedBigInt
+  level             Int       @default(0) @db.TinyInt
+  level_updated_at  DateTime? @db.DateTime(0)
+  ancestor_chain    Json?
+  merchant_category String    @default("") @db.VarChar(64)
+  store_info        Json?
+  real_name_status  Int       @default(0) @db.TinyInt
+  status            Int       @default(1) @db.TinyInt
+  last_login_at     DateTime? @db.DateTime(0)
+  created_at        DateTime  @default(now()) @db.DateTime(0)
+  updated_at        DateTime  @default(now()) @db.DateTime(0)
 
+  @@index([level], map: "idx_level")
+  @@index([referrer_id], map: "idx_referrer")
   @@map("user")
 }
 
 model point_wallet {
-  id             BigInt   @id @default(autoincrement())
-  user_id        Int      @unique
-  balance        Int      @default(0)
-  frozen_balance Int      @default(0)
-  total_earned   Int      @default(0)
-  total_consumed Int      @default(0)
-  version        Int      @default(0)
-  updated_at     DateTime @updatedAt
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id        BigInt   @unique(map: "uk_user") @db.UnsignedBigInt
+  balance        BigInt   @default(0)
+  frozen_balance BigInt   @default(0)
+  total_earned   BigInt   @default(0)
+  total_consumed BigInt   @default(0)
+  version        Int      @default(0) @db.UnsignedInt
+  created_at     DateTime @default(now()) @db.DateTime(0)
+  updated_at     DateTime @default(now()) @updatedAt @db.DateTime(0)
 
   @@map("point_wallet")
 }
 
 model point_flow {
-  id            BigInt   @id @default(autoincrement())
-  flow_no       String   @unique @db.VarChar(64)
-  user_id       Int
-  delta         Int
-  flow_type     String   @db.VarChar(32)
-  biz_id        String   @db.VarChar(64)
-  balance_after Int
-  created_at    DateTime @default(now())
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  flow_no       String    @unique(map: "uk_flow_no") @db.VarChar(64)
+  user_id       BigInt    @db.UnsignedBigInt
+  delta         BigInt
+  balance_after BigInt
+  flow_type     String    @db.VarChar(32)
+  biz_id        BigInt?   @db.UnsignedBigInt
+  biz_no        String    @default("") @db.VarChar(64)
+  rule_version  Int       @default(1)
+  expire_at     DateTime? @db.DateTime(0)
+  deferred_flag Int       @default(0) @db.TinyInt
+  frozen        Int       @default(0) @db.TinyInt
+  remark        String    @default("") @db.VarChar(255)
+  created_at    DateTime  @default(now()) @db.DateTime(0)
 
-  @@index([user_id, created_at])
+  @@index([expire_at, frozen], map: "idx_expire")
+  @@index([flow_type, biz_id], map: "idx_type_biz")
+  @@index([user_id, created_at], map: "idx_user_time")
   @@map("point_flow")
 }
 
 model room {
-  id        BigInt   @id @default(autoincrement())
-  status    Int      @default(1)
-  created_at DateTime @default(now())
+  id               BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  captain_user_id  BigInt?   @db.UnsignedBigInt
+  status           Int       @default(1) @db.TinyInt
+  round_no         Int       @default(0)
+  last_dividend_at DateTime? @db.DateTime(0)
+  created_at       DateTime  @default(now()) @db.DateTime(0)
+  updated_at       DateTime  @default(now()) @db.DateTime(0)
 
+  @@index([status], map: "idx_status")
   @@map("room")
 }
 
 model room_position {
-  id             BigInt    @id @default(autoincrement())
-  room_id        BigInt
-  pos_no         Int
-  holder_user_id Int?
-  occupied_at    DateTime?
-  contrib_points Int       @default(0)
+  id             BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  room_id        BigInt    @db.UnsignedBigInt
+  pos_no         Int       @db.TinyInt
+  row_no         Int       @db.TinyInt
+  col_no         Int       @db.TinyInt
+  holder_user_id BigInt?   @db.UnsignedBigInt
+  contrib_points Int       @default(0) @db.UnsignedTinyInt
+  occupied_at    DateTime? @db.DateTime(0)
+  vacated_at     DateTime? @db.DateTime(0)
+  updated_at     DateTime  @default(now()) @db.DateTime(0)
 
-  @@unique([room_id, pos_no])
+  @@unique([room_id, pos_no], map: "uk_room_pos")
+  @@index([holder_user_id], map: "idx_holder")
+  @@index([room_id, holder_user_id], map: "idx_room_holder")
   @@map("room_position")
 }
 
 model pos_task {
-  id           BigInt    @id @default(autoincrement())
-  user_id      Int
-  sn           String    @unique @db.VarChar(64)
-  qualified_at DateTime?
-  due_at       DateTime?
-  created_at   DateTime  @default(now())
+  id                   BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id              BigInt    @db.UnsignedBigInt
+  sn                   String    @unique(map: "uk_sn") @db.VarChar(64)
+  install_mode         Int       @default(1) @db.TinyInt
+  platform             String    @db.VarChar(32)
+  model                String    @db.VarChar(64)
+  proof_images         Json?
+  installed_at         DateTime  @db.DateTime(0)
+  due_at               DateTime  @db.DateTime(0)
+  cumulative_flow      Decimal   @default(0.00) @db.Decimal(12, 2)
+  month_flow           Decimal   @default(0.00) @db.Decimal(12, 2)
+  last_trade_at        DateTime? @db.DateTime(0)
+  fake_flag            Int       @default(0) @db.TinyInt
+  qualified_at         DateTime? @db.DateTime(0)
+  unqualified_recycled Int       @default(0) @db.TinyInt
+  machine_status       Int       @default(1) @db.TinyInt
+  returned_at          DateTime? @db.DateTime(0)
+  reward_points        BigInt    @default(100)
+  status               Int       @default(1) @db.TinyInt
+  reject_reason        String    @default("") @db.VarChar(255)
+  reviewer_id          BigInt?   @db.UnsignedBigInt
+  reviewed_at          DateTime? @db.DateTime(0)
+  reward_issued_at     DateTime? @db.DateTime(0)
+  submit_count         Int       @default(1)
+  created_at           DateTime  @default(now()) @db.DateTime(0)
+  updated_at           DateTime  @default(now()) @db.DateTime(0)
 
+  @@index([last_trade_at], map: "idx_last_trade")
+  @@index([status, due_at], map: "idx_status_due")
+  @@index([user_id, status], map: "idx_user_status")
   @@map("pos_task")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model acq_settle_batch {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  batch_no       String   @unique(map: "uk_batch_no") @db.VarChar(64)
+  settle_date    DateTime @unique(map: "uk_settle_date") @db.Date
+  total_flow     Decimal  @default(0.00) @db.Decimal(14, 2)
+  total_fee      Decimal  @default(0.00) @db.Decimal(14, 2)
+  net_revenue    Decimal  @default(0.00) @db.Decimal(14, 2)
+  deposit_amount Decimal  @default(0.00) @db.Decimal(14, 2)
+  machine_count  Int      @default(0)
+  reconciled     Int      @default(0) @db.TinyInt
+  status         Int      @default(1) @db.TinyInt
+  created_at     DateTime @default(now()) @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model acq_settle_item {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  batch_id    BigInt   @db.UnsignedBigInt
+  pos_task_id BigInt   @db.UnsignedBigInt
+  flow_amount Decimal  @db.Decimal(12, 2)
+  fee_amount  Decimal  @db.Decimal(12, 2)
+  fake_flag   Int      @default(0) @db.TinyInt
+  created_at  DateTime @default(now()) @db.DateTime(0)
+
+  @@unique([batch_id, pos_task_id], map: "uk_batch_pos")
+  @@index([pos_task_id], map: "idx_pos")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ad_slot {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  name       String   @db.VarChar(64)
+  image      String   @db.VarChar(255)
+  link_type  String   @default("") @db.VarChar(32)
+  link_value String   @default("") @db.VarChar(255)
+  sort       Int      @default(0)
+  status     Int      @default(1) @db.TinyInt
+  created_at DateTime @default(now()) @db.DateTime(0)
+  updated_at DateTime @default(now()) @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model admin_op_log {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  admin_id     BigInt   @db.UnsignedBigInt
+  action       String   @db.VarChar(64)
+  target_type  String   @default("") @db.VarChar(32)
+  target_id    BigInt?  @db.UnsignedBigInt
+  before_data  Json?
+  after_data   Json?
+  confirm_flag Int      @default(0) @db.TinyInt
+  confirm_by   BigInt?  @db.UnsignedBigInt
+  ip           String   @default("") @db.VarChar(64)
+  created_at   DateTime @default(now()) @db.DateTime(0)
+
+  @@index([admin_id, created_at], map: "idx_admin_time")
+  @@index([target_type, target_id], map: "idx_target")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model admin_permission {
+  id        BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+  code      String @unique(map: "uk_code") @db.VarChar(64)
+  name      String @db.VarChar(64)
+  module    String @db.VarChar(32)
+  sensitive Int    @default(0) @db.TinyInt
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model admin_role_permission {
+  id            BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+  role          String @db.VarChar(32)
+  permission_id BigInt @db.UnsignedBigInt
+
+  @@unique([role, permission_id], map: "uk_role_perm")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model admin_user {
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  username      String    @unique(map: "uk_username") @db.VarChar(64)
+  password_hash String    @db.VarChar(128)
+  role          String    @default("OPERATOR") @db.VarChar(32)
+  status        Int       @default(1) @db.TinyInt
+  last_login_at DateTime? @db.DateTime(0)
+  created_at    DateTime  @default(now()) @db.DateTime(0)
+  updated_at    DateTime  @default(now()) @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model contribution_record {
+  id            BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id       BigInt   @db.UnsignedBigInt
+  room_id       BigInt   @db.UnsignedBigInt
+  pos_no        Int      @db.TinyInt
+  source_type   String   @db.VarChar(32)
+  source_biz_id BigInt?  @db.UnsignedBigInt
+  is_overflow   Int      @default(0) @db.TinyInt
+  created_at    DateTime @default(now()) @db.DateTime(0)
+
+  @@index([room_id, created_at], map: "idx_room_time")
+  @@index([user_id, room_id], map: "idx_user_room")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model dead_letter {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  event_type  String    @db.VarChar(64)
+  payload     Json
+  idem_key    String    @db.VarChar(128)
+  retry_count Int       @default(0)
+  last_error  String    @default("") @db.VarChar(512)
+  status      Int       @default(1) @db.TinyInt
+  replayed_at DateTime? @db.DateTime(0)
+  created_at  DateTime  @default(now()) @db.DateTime(0)
+  updated_at  DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([status, created_at], map: "idx_status")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model dividend_record {
+  id                BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  room_id           BigInt   @db.UnsignedBigInt
+  round_no          Int
+  winner_user_id    BigInt   @db.UnsignedBigInt
+  dividend_points   BigInt   @default(1200)
+  winner_weight     Json
+  full_weight_order Json?
+  rule_version      Int      @default(1)
+  reentry_id        BigInt?  @db.UnsignedBigInt
+  deferred_flag     Int      @default(0) @db.TinyInt
+  settled_at        DateTime @db.DateTime(0)
+  created_at        DateTime @default(now()) @db.DateTime(0)
+  updated_at        DateTime @default(now()) @db.DateTime(0)
+
+  @@unique([room_id, round_no], map: "uk_room_round")
+  @@index([winner_user_id], map: "idx_winner")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model gift_activity {
+  id                 BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  name               String   @db.VarChar(64)
+  target_rule        Json
+  points_per_user    BigInt
+  budget_points      BigInt
+  budget_amount      Decimal  @db.Decimal(12, 2)
+  issued_points      BigInt   @default(0)
+  issued_count       Int      @default(0)
+  points_expire_days Int      @default(120)
+  status             Int      @default(1) @db.TinyInt
+  approver_id        BigInt?  @db.UnsignedBigInt
+  approver2_id       BigInt?  @db.UnsignedBigInt
+  effective_from     DateTime @db.DateTime(0)
+  effective_to       DateTime @db.DateTime(0)
+  created_by         BigInt   @db.UnsignedBigInt
+  created_at         DateTime @default(now()) @db.DateTime(0)
+  updated_at         DateTime @default(now()) @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model gift_record {
+  id                BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  gift_type         Int       @db.TinyInt
+  activity_id       BigInt?   @db.UnsignedBigInt
+  from_user_id      BigInt?   @db.UnsignedBigInt
+  to_user_id        BigInt    @db.UnsignedBigInt
+  points            BigInt
+  confirm_deadline  DateTime? @db.DateTime(0)
+  confirmed_at      DateTime? @db.DateTime(0)
+  flow_no           String    @unique(map: "uk_flow_no") @db.VarChar(64)
+  status            Int       @default(1) @db.TinyInt
+  risk_block_reason String    @default("") @db.VarChar(255)
+  created_at        DateTime  @default(now()) @db.DateTime(0)
+  updated_at        DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([activity_id], map: "idx_activity")
+  @@index([status, confirm_deadline], map: "idx_confirm")
+  @@index([to_user_id, status], map: "idx_to_user")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model mall_order {
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  order_no        String    @unique(map: "uk_order_no") @db.VarChar(64)
+  user_id         BigInt    @db.UnsignedBigInt
+  merchant_id     BigInt    @db.UnsignedBigInt
+  product_id      BigInt    @db.UnsignedBigInt
+  product_name    String    @db.VarChar(128)
+  product_price   BigInt
+  quantity        Int       @default(1)
+  total_points    BigInt
+  address         Json?
+  track_no        String    @default("") @db.VarChar(64)
+  virtual_result  Json?
+  fulfill_cost    Decimal?  @db.Decimal(12, 2)
+  pool_reported   Int       @default(0) @db.TinyInt
+  status          Int       @default(1) @db.TinyInt
+  after_sale_type Int       @default(0) @db.TinyInt
+  after_sale_at   DateTime? @db.DateTime(0)
+  paid_at         DateTime? @db.DateTime(0)
+  finished_at     DateTime? @db.DateTime(0)
+  created_at      DateTime  @default(now()) @db.DateTime(0)
+  updated_at      DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([status, pool_reported], map: "idx_status_pool")
+  @@index([user_id, status], map: "idx_user_status")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model merchant {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  name       String   @db.VarChar(64)
+  logo       String   @default("") @db.VarChar(255)
+  status     Int      @default(1) @db.TinyInt
+  created_at DateTime @default(now()) @db.DateTime(0)
+  updated_at DateTime @default(now()) @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model point_expire_batch {
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id         BigInt    @db.UnsignedBigInt
+  source_batch_no String    @db.VarChar(64)
+  points          BigInt
+  expire_at       DateTime  @db.DateTime(0)
+  status          Int       @default(1) @db.TinyInt
+  cleared_at      DateTime? @db.DateTime(0)
+  created_at      DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([status, expire_at], map: "idx_expire_status")
+  @@index([user_id, expire_at], map: "idx_user_expire")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model product {
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  merchant_id     BigInt    @db.UnsignedBigInt
+  name            String    @db.VarChar(128)
+  cover           String    @default("") @db.VarChar(255)
+  detail          String?   @db.Text
+  price_points    BigInt
+  cost_amount     Decimal   @default(0.00) @db.Decimal(12, 2)
+  cost_over_limit Int       @default(0) @db.TinyInt
+  stock           Int       @default(0)
+  stock_warn      Int       @default(10)
+  limit_per_user  Int?
+  limit_period    String    @default("LIFETIME") @db.VarChar(8)
+  min_level       Int       @default(0) @db.TinyInt
+  delivery_type   Int       @default(1) @db.TinyInt
+  virtual_config  Json?
+  status          Int       @default(1) @db.TinyInt
+  online_at       DateTime? @db.DateTime(0)
+  offline_at      DateTime? @db.DateTime(0)
+  sort            Int       @default(0)
+  created_at      DateTime  @default(now()) @db.DateTime(0)
+  updated_at      DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([merchant_id, status], map: "idx_merchant_status")
+  @@index([min_level, status], map: "idx_min_level")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model profit_pool_config {
+  id                BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  pool_name         String    @default("MAIN") @db.VarChar(64)
+  fee_rate_protocol Decimal   @default(0.0060) @db.Decimal(6, 4)
+  channel_cost_rate Decimal   @default(0.0030) @db.Decimal(6, 4)
+  deposit_ratio     Decimal   @default(1.0000) @db.Decimal(5, 4)
+  point_cost_factor Decimal   @default(0.3000) @db.Decimal(6, 4)
+  redeem_rate       Decimal   @default(0.6500) @db.Decimal(5, 4)
+  warn_days         Int       @default(30)
+  guard_days        Int       @default(14)
+  downgrade_order   Json
+  guard_status      Int       @default(0) @db.TinyInt
+  guard_since       DateTime? @db.DateTime(0)
+  version           Int       @default(1)
+  updated_by        BigInt?   @db.UnsignedBigInt
+  created_at        DateTime  @default(now()) @db.DateTime(0)
+  updated_at        DateTime  @default(now()) @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model profit_pool_daily {
+  id                 BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  biz_date           DateTime @unique(map: "uk_date") @db.Date
+  opening_balance    Decimal  @db.Decimal(14, 2)
+  in_amount          Decimal  @default(0.00) @db.Decimal(14, 2)
+  machine_count      Int      @default(0)
+  liability_add      Decimal  @default(0.00) @db.Decimal(14, 2)
+  out_amount         Decimal  @default(0.00) @db.Decimal(14, 2)
+  closing_balance    Decimal  @db.Decimal(14, 2)
+  pending_liability  Decimal  @default(0.00) @db.Decimal(14, 2)
+  avg_daily_spend    Decimal  @default(0.00) @db.Decimal(14, 2)
+  support_days       Int      @default(0)
+  redeem_rate_actual Decimal  @default(0.0000) @db.Decimal(5, 4)
+  guard_status       Int      @default(0) @db.TinyInt
+  created_at         DateTime @default(now()) @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model profit_pool_ledger {
+  id            BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  biz_date      DateTime @db.Date
+  ledger_type   String   @db.VarChar(32)
+  amount        Decimal  @db.Decimal(14, 2)
+  points        BigInt   @default(0)
+  source_type   String   @default("") @db.VarChar(32)
+  source_biz_id BigInt?  @db.UnsignedBigInt
+  balance_after Decimal  @db.Decimal(14, 2)
+  remark        String   @default("") @db.VarChar(255)
+  created_at    DateTime @default(now()) @db.DateTime(0)
+
+  @@index([biz_date], map: "idx_date")
+  @@index([ledger_type, created_at], map: "idx_type_time")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model reconcile_diff {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  biz_date   DateTime  @db.Date
+  diff_type  String    @db.VarChar(32)
+  ref_id     BigInt?   @db.UnsignedBigInt
+  expected   String    @db.VarChar(128)
+  actual     String    @db.VarChar(128)
+  status     Int       @default(1) @db.TinyInt
+  handled_by BigInt?   @db.UnsignedBigInt
+  handled_at DateTime? @db.DateTime(0)
+  created_at DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([biz_date, diff_type, status], map: "idx_date_type")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model risk_record {
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id       BigInt    @db.UnsignedBigInt
+  risk_type     String    @db.VarChar(32)
+  evidence      Json?
+  action        Int       @default(1) @db.TinyInt
+  action_detail String    @default("") @db.VarChar(255)
+  status        Int       @default(1) @db.TinyInt
+  operator_id   BigInt?   @db.UnsignedBigInt
+  handled_at    DateTime? @db.DateTime(0)
+  created_at    DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([risk_type, status], map: "idx_type")
+  @@index([user_id, status], map: "idx_user")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model room_op_log {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  room_id    BigInt   @db.UnsignedBigInt
+  op_type    String   @db.VarChar(32)
+  user_id    BigInt?  @db.UnsignedBigInt
+  pos_no     Int?     @db.TinyInt
+  round_no   Int      @default(0)
+  from_state Json?
+  to_state   Json?
+  biz_no     String   @default("") @db.VarChar(64)
+  created_at DateTime @default(now()) @db.DateTime(0)
+
+  @@index([room_id, created_at], map: "idx_room_time")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model room_rebuild {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  dividend_id  BigInt   @unique(map: "uk_dividend") @db.UnsignedBigInt
+  old_room_id  BigInt   @db.UnsignedBigInt
+  round_no     Int
+  new_room_id  BigInt   @db.UnsignedBigInt
+  weight_order Json
+  rebuilt_at   DateTime @db.DateTime(0)
+  created_at   DateTime @default(now()) @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model sys_config {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  config_key   String   @unique(map: "uk_key") @db.VarChar(64)
+  config_value String   @db.VarChar(512)
+  remark       String   @default("") @db.VarChar(255)
+  updated_by   BigInt?  @db.UnsignedBigInt
+  created_at   DateTime @default(now()) @db.DateTime(0)
+  updated_at   DateTime @default(now()) @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model task_template {
+  id             BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  code           String    @unique(map: "uk_code") @db.VarChar(32)
+  name           String    @db.VarChar(64)
+  task_type      Int       @db.TinyInt
+  event_type     String    @db.VarChar(32)
+  threshold      Int       @default(1)
+  period         String    @default("LIFETIME") @db.VarChar(8)
+  period_key_fmt String    @default("") @db.VarChar(32)
+  reward_points  BigInt
+  min_level      Int       @default(0) @db.TinyInt
+  max_per_user   Int       @default(1)
+  expire_days    Int?
+  quota          Int?
+  effective_from DateTime? @db.DateTime(0)
+  effective_to   DateTime? @db.DateTime(0)
+  sort           Int       @default(0)
+  status         Int       @default(1) @db.TinyInt
+  created_at     DateTime  @default(now()) @db.DateTime(0)
+  updated_at     DateTime  @default(now()) @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model team_reentry {
+  id                 BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id            BigInt    @db.UnsignedBigInt
+  dividend_id        BigInt    @unique(map: "uk_dividend") @db.UnsignedBigInt
+  from_room_id       BigInt    @db.UnsignedBigInt
+  target_referrer_id BigInt?   @db.UnsignedBigInt
+  to_room_id         BigInt?   @db.UnsignedBigInt
+  to_pos_no          Int?      @db.TinyInt
+  round_no           Int
+  machine_check      Int       @default(1) @db.TinyInt
+  machine_sn         String    @db.VarChar(64)
+  status             Int       @default(1) @db.TinyInt
+  enqueued_at        DateTime  @db.DateTime(0)
+  rejoined_at        DateTime? @db.DateTime(0)
+  created_at         DateTime  @default(now()) @db.DateTime(0)
+  updated_at         DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([status, enqueued_at], map: "idx_status_queue")
+  @@index([user_id], map: "idx_user")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model team_slot {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id     BigInt    @unique(map: "uk_user") @db.UnsignedBigInt
+  pos_task_id BigInt    @db.UnsignedBigInt
+  pos_sn      String    @db.VarChar(64)
+  granted_at  DateTime  @db.DateTime(0)
+  status      Int       @default(1) @db.TinyInt
+  room_id     BigInt?   @db.UnsignedBigInt
+  pos_no      Int?      @db.TinyInt
+  joined_at   DateTime? @db.DateTime(0)
+  left_at     DateTime? @db.DateTime(0)
+  created_at  DateTime  @default(now()) @db.DateTime(0)
+  updated_at  DateTime  @default(now()) @db.DateTime(0)
+
+  @@index([room_id], map: "idx_room")
+  @@index([status], map: "idx_status")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model tier {
+  id              BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  level_no        Int      @unique(map: "uk_level_no") @db.TinyInt
+  name            String   @db.VarChar(32)
+  reach_condition Json
+  reward_factor   Decimal  @default(1.00) @db.Decimal(5, 2)
+  mall_pool       String   @default("NORMAL") @db.VarChar(16)
+  tag_name        String   @default("") @db.VarChar(32)
+  tag_color       String   @default("#999999") @db.VarChar(16)
+  version         Int      @default(1)
+  status          Int      @default(1) @db.TinyInt
+  created_at      DateTime @default(now()) @db.DateTime(0)
+  updated_at      DateTime @default(now()) @db.DateTime(0)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model user_level_record {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id        BigInt   @db.UnsignedBigInt
+  from_level     Int      @db.TinyInt
+  to_level       Int      @db.TinyInt
+  trigger_type   String   @db.VarChar(32)
+  trigger_biz_id String   @default("") @db.VarChar(64)
+  snapshot       Json?
+  created_at     DateTime @default(now()) @db.DateTime(0)
+
+  @@unique([user_id, to_level, trigger_biz_id], map: "uk_user_to_trigger")
+  @@index([user_id, created_at], map: "idx_user_time")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model user_task {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id      BigInt    @db.UnsignedBigInt
+  task_id      BigInt    @db.UnsignedBigInt
+  period_key   String    @default("") @db.VarChar(32)
+  progress     Int       @default(0)
+  due_at       DateTime? @db.DateTime(0)
+  status       Int       @default(1) @db.TinyInt
+  completed_at DateTime? @db.DateTime(0)
+  settled_at   DateTime? @db.DateTime(0)
+  created_at   DateTime  @default(now()) @db.DateTime(0)
+  updated_at   DateTime  @default(now()) @db.DateTime(0)
+
+  @@unique([user_id, task_id, period_key], map: "uk_user_task_period")
+  @@index([status, completed_at], map: "idx_settle")
+  @@index([status, due_at], map: "idx_status_due")
 }
