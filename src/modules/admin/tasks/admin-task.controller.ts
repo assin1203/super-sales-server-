@@ -1,8 +1,11 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AdminTaskService } from './admin-task.service';
+import { AdminJwtGuard, PermissionsGuard, RequirePermission } from '../../../shared/auth';
 
 /** 后台·任务接口（/admin/tasks） */
 @Controller('admin/tasks')
+@UseGuards(AdminJwtGuard, PermissionsGuard)
+@RequirePermission('task:manage')
 export class AdminTaskController {
   constructor(private readonly service: AdminTaskService) {}
 

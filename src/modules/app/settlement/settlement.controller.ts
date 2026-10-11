@@ -1,8 +1,14 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { SettlementService } from './settlement.service';
+import { InternalJwtGuard } from '../../../shared/auth';
 
-// TODO: 内部签名鉴权（仅收单流水导入 Job / 管理端可调用）
+/**
+ * 结算触发接口（内部）：
+ * 仅接受 /internal/token 换发的 internal token（T+1 流水导入 Job 调用）；
+ * 用户/后台 token 因 aud 不匹配一律 401。
+ */
 @Controller('settlement')
+@UseGuards(InternalJwtGuard)
 export class SettlementController {
   constructor(private readonly settlement: SettlementService) {}
 

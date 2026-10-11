@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UserDao } from '../../../dao/user.dao';
 import { AdminDao } from '../../../dao/admin.dao';
+import { AuthCacheService } from '../../../shared/auth';
 
 /**
  * 后台·用户管理（FR-12.8 RBAC + 双人复核）
@@ -11,6 +12,7 @@ export class AdminUserService {
   constructor(
     private readonly userDao: UserDao,
     private readonly adminDao: AdminDao,
+    private readonly authCache: AuthCacheService,
   ) {}
 
   findByPhone(phone: string) {
@@ -39,5 +41,7 @@ export class AdminUserService {
       confirmBy,
       ip: operator.ip,
     });
+    // 立即踢出：被冻结用户的 access token 在下个请求即失效（不等 60s 缓存 TTL）
+    await this.authCache.evictUser(userId);
   }
 }

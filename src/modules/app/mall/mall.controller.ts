@@ -1,6 +1,8 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { MallService } from './mall.service';
+import { UserJwtGuard, CurrentUser } from '../../../shared/auth';
 
+/** C 端商城接口（/mall）：列表公开可浏览；兑换要求登录态（userId 取自 JWT，不信任请求体） */
 @Controller('mall')
 export class MallController {
   constructor(private readonly mall: MallService) {}
@@ -11,7 +13,8 @@ export class MallController {
   }
 
   @Post('exchange')
-  exchange(@Body() body: { userId: number; productId: number }) {
-    return this.mall.exchange(body.userId, body.productId);
+  @UseGuards(UserJwtGuard)
+  exchange(@Body() body: { productId: number }, @CurrentUser() user: { id: bigint }) {
+    return this.mall.exchange(user.id, body.productId);
   }
 }

@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './shared/prisma/prisma.module';
 import { RedisModule } from './shared/redis/redis.module';
+import { AuthModule } from './shared/auth/auth.module';
 import { DaoModule } from './dao/dao.module';
 import { AppDomainModule } from './modules/app/app.domain.module';
 import { AdminDomainModule } from './modules/admin/admin.domain.module';
+import { InternalModule } from './modules/internal/internal.module';
 import { appConfig, envFilePaths } from './config/env.config';
 
 /**
@@ -24,9 +26,11 @@ import { appConfig, envFilePaths } from './config/env.config';
     }),
     PrismaModule,
     RedisModule,
+    AuthModule,
     DaoModule,
     AppDomainModule,
     AdminDomainModule,
+    InternalModule,
   ],
 })
 export class AppModule {}

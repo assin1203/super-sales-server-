@@ -11,7 +11,7 @@ import { PrismaService } from '../../../shared/prisma/prisma.service';
 export class MallService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async exchange(userId: number, productId: number): Promise<void> {
+  async exchange(userId: bigint, productId: number): Promise<void> {
     // TODO: 事务：冻结积分 → 扣库存(条件更新) → 建 mall_order(快照价) → 流水
     void userId;
     void productId;

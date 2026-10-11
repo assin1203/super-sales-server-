@@ -21,6 +21,10 @@ export class AdminDao {
     return this.prisma.admin_user.findUnique({ where: { id: id as bigint } });
   }
 
+  touchLastLogin(id: bigint | number) {
+    return this.prisma.admin_user.update({ where: { id: id as bigint }, data: { last_login_at: new Date() } });
+  }
+
   // ---------- permission ----------
 
   /** 角色权限编码列表（登录时装配；分步查询替代 include） */
